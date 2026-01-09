@@ -1,99 +1,104 @@
-const header = document.querySelector(".header");
-const webBody = document.body;
-const burger = document.querySelector(".burger");
-const dropdownLinks = document.querySelectorAll(".navlist .dropdown > a");
+/* =====================
+   Utilities
+===================== */
+const $ = (sel, scope = document) => scope.querySelector(sel);
+const $$ = (sel, scope = document) => [...scope.querySelectorAll(sel)];
+const isMobile = () => window.innerWidth <= 1199;
 
-burger.addEventListener("click", (e) => {
-  e.stopPropagation(); // prevent immediate outside close
+/* =====================
+   Header / Burger Menu
+===================== */
+const header = $(".header");
+const burger = $(".burger");
+const body = document.body;
 
-  const isOpen = header.classList.toggle("menu-open");
-  webBody.classList.toggle("menu-open-body", isOpen);
+if (burger && header) {
+  burger.addEventListener("click", (e) => {
+    e.stopPropagation();
 
-  burger.setAttribute("aria-expanded", isOpen);
-});
+    const isOpen = header.classList.toggle("menu-open");
+    body.classList.toggle("menu-open-body", isOpen);
+    burger.setAttribute("aria-expanded", isOpen);
+  });
 
-/* Mobile dropdown toggle */
-dropdownLinks.forEach((link) => {
-  link.addEventListener("click", (e) => {
-    if (window.innerWidth <= 1199) {
-      e.preventDefault();
-      e.stopPropagation();
-
-      const parent = link.parentElement;
-      parent.classList.toggle("open");
+  document.addEventListener("click", (e) => {
+    if (
+      header.classList.contains("menu-open") &&
+      !e.target.closest(".header")
+    ) {
+      header.classList.remove("menu-open");
+      body.classList.remove("menu-open-body");
+      burger.setAttribute("aria-expanded", "false");
     }
   });
-});
+}
 
-/* Close menu on outside click */
+/* =====================
+   Mobile Dropdowns
+===================== */
 document.addEventListener("click", (e) => {
-  if (header.classList.contains("menu-open") && !e.target.closest(".header")) {
-    header.classList.remove("menu-open");
-    webBody.classList.remove("menu-open-body");
-    burger.setAttribute("aria-expanded", false);
-  }
+  const link = e.target.closest(".navlist .dropdown > a");
+  if (!link || !isMobile()) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+  link.parentElement.classList.toggle("open");
 });
 
-// Count Section JS
+/* =====================
+   Counter Animation
+===================== */
+const counters = $$(".count");
+const countSection = $("#countSection");
 
-const counters = document.querySelectorAll(".count");
-let hasAnimated = false;
+if (counters.length && countSection) {
+  const animateCounter = (el) => {
+    const target = Number(el.dataset.target) || 0;
+    const duration = 1500;
+    const start = performance.now();
 
-const animateCounter = (counter) => {
-  const target = +counter.dataset.target;
-  const duration = 1500; // ms
-  const startTime = performance.now();
+    const tick = (now) => {
+      const progress = Math.min((now - start) / duration, 1);
+      el.textContent = `${Math.floor(progress * target)}%`;
+      if (progress < 1) requestAnimationFrame(tick);
+      else el.textContent = `${target}%`;
+    };
 
-  const update = (currentTime) => {
-    const elapsed = currentTime - startTime;
-    const progress = Math.min(elapsed / duration, 1);
-    const value = Math.floor(progress * target);
-
-    counter.textContent = `${value}%`;
-
-    if (progress < 1) {
-      requestAnimationFrame(update);
-    } else {
-      counter.textContent = `${target}%`;
-    }
+    requestAnimationFrame(tick);
   };
 
-  requestAnimationFrame(update);
-};
+  const observer = new IntersectionObserver(
+    ([entry], obs) => {
+      if (entry.isIntersecting) {
+        counters.forEach(animateCounter);
+        obs.disconnect();
+      }
+    },
+    { threshold: 0.1 }
+  );
 
-const observer = new IntersectionObserver(
-  (entries) => {
-    if (entries[0].isIntersecting && !hasAnimated) {
-      counters.forEach(animateCounter);
-      hasAnimated = true;
-      observer.disconnect();
-    }
-  },
-  { threshold: 0.4 }
-);
+  observer.observe(countSection);
+}
 
-observer.observe(document.getElementById("countSection"));
+/* =====================
+   Accordion
+===================== */
+document.addEventListener("click", (e) => {
+  const header = e.target.closest(".accordion-item-header");
+  if (!header) return;
 
-//Accordian
+  header.classList.toggle("active");
+  const body = header.nextElementSibling;
 
-const accordionItemHeaders = document.querySelectorAll(
-  ".accordion-item-header"
-);
-
-accordionItemHeaders.forEach((accordionItemHeader) => {
-  accordionItemHeader.addEventListener("click", (event) => {
-    accordionItemHeader.classList.toggle("active");
-    const accordionItemBody = accordionItemHeader.nextElementSibling;
-    if (accordionItemHeader.classList.contains("active")) {
-      accordionItemBody.style.maxHeight = accordionItemBody.scrollHeight + "px";
-    } else {
-      accordionItemBody.style.maxHeight = 0;
-    }
-  });
+  if (!body) return;
+  body.style.maxHeight = header.classList.contains("active")
+    ? body.scrollHeight + "px"
+    : "0";
 });
 
-// Product Slider JS
-
+/* =====================
+   Product Slider
+===================== */
 const images = [
   "assets/slider-image.jpg",
   "assets/slider-image-2.png",
@@ -103,78 +108,71 @@ const images = [
   "assets/slider-image-3.png",
 ];
 
+const mainImage = $("#mainImage");
+const thumbnails = $$(".thumbnails img");
+const dotsContainer = $("#dots");
+const prevBtn = $(".prev");
+const nextBtn = $(".next");
+
 let currentIndex = 0;
 
-const mainImage = document.getElementById("mainImage");
-const thumbnails = document.querySelectorAll(".thumbnails img");
-const dotsContainer = document.getElementById("dots");
-const prevBtn = document.querySelector(".prev");
-const nextBtn = document.querySelector(".next");
+if (mainImage && dotsContainer) {
+  const dots = images.map((_, i) => {
+    const dot = document.createElement("span");
+    dot.addEventListener("click", () => setSlide(i));
+    dotsContainer.appendChild(dot);
+    return dot;
+  });
 
-// Create dots
-images.forEach((_, index) => {
-  const dot = document.createElement("span");
-  dot.addEventListener("click", () => setSlide(index));
-  dotsContainer.appendChild(dot);
-});
+  function setSlide(index) {
+    currentIndex = index;
+    mainImage.src = images[index];
 
-const dots = dotsContainer.querySelectorAll("span");
+    thumbnails.forEach((t, i) => t.classList.toggle("active", i === index));
+    dots.forEach((d, i) => d.classList.toggle("active", i === index));
+  }
 
-function setSlide(index) {
-  currentIndex = index;
-  mainImage.src = images[index];
-
-  thumbnails.forEach((thumb, i) =>
-    thumb.classList.toggle("active", i === index)
+  prevBtn?.addEventListener("click", () =>
+    setSlide((currentIndex - 1 + images.length) % images.length)
   );
 
-  dots.forEach((dot, i) => dot.classList.toggle("active", i === index));
+  nextBtn?.addEventListener("click", () =>
+    setSlide((currentIndex + 1) % images.length)
+  );
+
+  thumbnails.forEach((t, i) => t.addEventListener("click", () => setSlide(i)));
+
+  setSlide(0);
 }
 
-prevBtn.addEventListener("click", () => {
-  currentIndex = currentIndex === 0 ? images.length - 1 : currentIndex - 1;
-  setSlide(currentIndex);
-});
-
-nextBtn.addEventListener("click", () => {
-  currentIndex = currentIndex === images.length - 1 ? 0 : currentIndex + 1;
-  setSlide(currentIndex);
-});
-
-thumbnails.forEach((thumb, index) => {
-  thumb.addEventListener("click", () => setSlide(index));
-});
-
-// Init
-setSlide(0);
-
-//Subscription
-
-const plans = document.querySelectorAll(".plan");
-const radios = document.querySelectorAll('input[name="plan"]');
+/* =====================
+   Subscription Plans
+===================== */
+const plans = $$(".plan");
+const radios = $$('input[name="plan"]');
 
 radios.forEach((radio, index) => {
   radio.addEventListener("change", () => {
-    plans.forEach((plan) => plan.classList.remove("active", "show-double"));
+    plans.forEach((p) => p.classList.remove("active", "show-double"));
 
-    const selectedPlan = plans[index];
-    selectedPlan.classList.add("active");
+    const selected = plans[index];
+    selected?.classList.add("active");
 
-    if (selectedPlan.dataset.plan === "double") {
-      selectedPlan.classList.add("show-double");
+    if (selected?.dataset.plan === "double") {
+      selected.classList.add("show-double");
     }
   });
 });
 
-// Fragrance selection
-document.querySelectorAll(".fragranceGrid").forEach((grid) => {
+/* =====================
+   Fragrance Selection
+===================== */
+$$(".fragranceGrid").forEach((grid) => {
   grid.addEventListener("click", (e) => {
     const item = e.target.closest(".fragrance");
     if (!item) return;
 
-    grid
-      .querySelectorAll(".fragrance")
-      .forEach((f) => f.classList.remove("active"));
+    $$(".fragrance", grid).forEach((f) => f.classList.remove("active"));
 
     item.classList.add("active");
   });
